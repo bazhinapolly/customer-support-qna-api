@@ -1,20 +1,20 @@
 # Customer Support Q&A API
 
-Portfolio demo: a small REST API that wraps OpenAI for customer-support Q&A.
+A small REST API that uses OpenAI to answer customer support questions from a structured business context.
 
-The project is designed for small businesses that want a lightweight customer support assistant without building a full chatbot platform. It accepts a customer question, uses a structured support context, asks OpenAI for a controlled answer, and returns a JSON response.
+This portfolio case study is designed for small businesses that want a lightweight AI-assisted support endpoint without building a full chatbot platform. The API accepts a customer question, validates the request, combines it with approved business information, sends it to OpenAI through a controlled support prompt, and returns a concise JSON response.
 
 ## What It Does
 
 - Provides one `POST /support/ask` endpoint
-- Accepts JSON with a customer question
+- Accepts JSON input with a customer question
 - Uses a structured system prompt and support context
-- Calls OpenAI Chat Completions API
-- Returns a concise support answer
+- Calls the OpenAI Chat Completions API
+- Returns a concise customer-facing support answer
 - Validates missing, empty, and oversized input
 - Handles OpenAI rate limits, API errors, and request timeouts
 - Stores configuration in environment variables
-- Includes a short test suite for prompt, validation, and error mapping logic
+- Includes a small test suite for prompt, validation, and error mapping logic
 
 ## Tech Stack
 
@@ -23,6 +23,29 @@ The project is designed for small businesses that want a lightweight customer su
 - OpenAI API
 - dotenv
 - Native Node.js tests with `assert`
+
+## Project Structure
+
+```text
+customer-support-qna-api/
+  src/
+    openaiClient.js
+    prompt.js
+    server.js
+    supportContext.js
+    validation.js
+  test/
+    run-tests.js
+  docs/
+    Customer-Support-QA-API-Case-Study.pdf
+    Customer-Support-QA-API-Technical-Summary.pdf
+    client-verification-report.md
+    portfolio-case-study.md
+  .env.example
+  package.json
+  pnpm-lock.yaml
+  README.md
+```
 
 ## API Example
 
@@ -72,6 +95,7 @@ cp .env.example .env
 ```text
 OPENAI_API_KEY=your_openai_api_key_here
 HOST=127.0.0.1
+PORT=3000
 ```
 
 4. Start the API:
@@ -129,8 +153,12 @@ Timeout:
 }
 ```
 
+## Business Value
+
+This type of API helps businesses answer common support questions faster, reduce repetitive manual replies, keep AI responses aligned with approved company information, and create a foundation that can later be connected to a chatbot, website form, CRM, helpdesk, or internal support workflow.
+
 ## Portfolio Context
 
-This is a portfolio demo, not a live client deployment. It demonstrates how to build a small, maintainable OpenAI API integration with prompt design, validation, error handling, environment-based configuration, and clear setup instructions.
+This is a portfolio case study built to show how a lightweight OpenAI-powered support API can be structured, tested, and documented. It demonstrates practical production patterns such as prompt design, input validation, environment-based configuration, provider error handling, timeout handling, and clear setup instructions.
 
 It can be adapted for customer support widgets, internal helpdesk tools, lead intake forms, FAQ assistants, and lightweight AI support workflows.
