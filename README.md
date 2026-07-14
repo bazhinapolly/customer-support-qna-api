@@ -1,164 +1,177 @@
 # Customer Support Q&A API
 
-A small REST API that uses OpenAI to answer customer support questions from a structured business context.
+An authenticated REST API that sends customer-support questions to OpenAI with a fixed business context and returns concise JSON answers.
 
-This portfolio case study is designed for small businesses that want a lightweight AI-assisted support endpoint without building a full chatbot platform. The API accepts a customer question, validates the request, combines it with approved business information, sends it to OpenAI through a controlled support prompt, and returns a concise JSON response.
+The repository implements the backend request-to-provider flow. It does not include a chat interface, retrieval-augmented generation (RAG), a CRM/helpdesk connector, or deployment infrastructure.
 
-## What It Does
+## Implemented Features
 
-- Provides one `POST /support/ask` endpoint
-- Accepts JSON input with a customer question
-- Uses a structured system prompt and support context
-- Calls the OpenAI Chat Completions API
-- Returns a concise customer-facing support answer
-- Validates missing, empty, and oversized input
-- Handles OpenAI rate limits, API errors, and request timeouts
-- Stores configuration in environment variables
-- Includes a small test suite for prompt, validation, and error mapping logic
+- `POST /support/ask` with bearer-token authentication
+- OpenAI Responses API integration
+- Fixed fictional support context kept separate from request handling
+- Input validation and a 32 KB request-body limit
+- Per-process IP rate limiting for the paid endpoint
+- OpenAI timeout, retry, rate-limit, and provider-error handling
+- Stable JSON errors for malformed JSON, oversized bodies, unknown routes, and provider failures
+- Separate liveness and readiness endpoints
+- Security headers through Helmet
+- Startup validation for numeric configuration
+- Graceful shutdown on `SIGINT` and `SIGTERM`
+- Unit and HTTP integration tests with no paid API calls
+- GitHub Actions checks on supported Node.js versions
 
-## Tech Stack
-
-- Node.js
-- Express
-- OpenAI API
-- dotenv
-- Native Node.js tests with `assert`
-
-## Project Structure
+## Request Flow
 
 ```text
-customer-support-qna-api/
-  src/
-    openaiClient.js
-    prompt.js
-    server.js
-    supportContext.js
-    validation.js
-  test/
-    run-tests.js
-  docs/
-    Customer-Support-QA-API-Case-Study.pdf
-    Customer-Support-QA-API-Technical-Summary.pdf
-    client-verification-report.md
-    portfolio-case-study.md
-  .env.example
-  package.json
-  pnpm-lock.yaml
-  README.md
+HTTP request
+  -> rate limit
+  -> bearer-token authentication
+  -> payload validation
+  -> fixed support instructions + customer question
+  -> OpenAI Responses API
+  -> normalized JSON response
 ```
 
-## API Example
+The grounding mechanism is prompt-based: the model is instructed to answer only from the bundled context. The application does not perform retrieval, citations, or deterministic factual verification of model output.
 
-Request:
+## Requirements
 
-```http
-POST /support/ask
-Content-Type: application/json
-```
-
-```json
-{
-  "question": "Can I book a same-day deep cleaning?"
-}
-```
-
-Response:
-
-```json
-{
-  "answer": "Same-day appointments are not guaranteed. You can request a quote through the website form, and the team usually replies within one business day.",
-  "model": "gpt-4o-mini",
-  "usage": {
-    "prompt_tokens": 300,
-    "completion_tokens": 40,
-    "total_tokens": 340
-  }
-}
-```
+- Node.js 20 or later
+- An OpenAI API key
+- A separate random secret used by callers of this API
 
 ## Setup
 
-1. Install dependencies:
+Install the locked dependencies:
 
 ```bash
-npm install
+npm ci
 ```
 
-2. Create `.env` from `.env.example`:
+Create the local configuration:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Add your OpenAI API key:
+Set `OPENAI_API_KEY` and generate an independent inbound API secret, for example:
 
-```text
-OPENAI_API_KEY=your_openai_api_key_here
-HOST=127.0.0.1
-PORT=3000
+```bash
+openssl rand -hex 32
 ```
 
-4. Start the API:
+Put the generated value in `SUPPORT_API_KEY`. Do not reuse an OpenAI key as the inbound secret and do not commit `.env`.
+
+Start the server:
 
 ```bash
 npm start
 ```
 
-5. Test the endpoint:
+The default address is `http://127.0.0.1:3000`.
 
-```bash
-curl -X POST http://localhost:3000/support/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question":"What are your opening hours?"}'
+## API
+
+### Liveness
+
+```http
+GET /health/live
 ```
 
-## Test
+Returns `200` while the HTTP process is running:
+
+```json
+{ "status": "ok" }
+```
+
+### Readiness
+
+```http
+GET /health/ready
+```
+
+Returns `200` only when both required secrets are present. It validates configuration presence, not live OpenAI connectivity.
+
+### Ask a support question
+
+```bash
+curl http://127.0.0.1:3000/support/ask \
+  --request POST \
+  --header "Authorization: Bearer $SUPPORT_API_KEY" \
+  --header "Content-Type: application/json" \
+  --data '{"question":"Can I book a same-day deep cleaning?"}'
+```
+
+Successful response shape:
+
+```json
+{
+  "answer": "Same-day appointments are not guaranteed. Request a quote through the website form.",
+  "model": "gpt-4o-mini",
+  "usage": {
+    "input_tokens": 245,
+    "output_tokens": 25,
+    "total_tokens": 270
+  }
+}
+```
+
+The answer and token counts vary by provider response.
+
+## Configuration
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `OPENAI_API_KEY` | yes | none | Server-side OpenAI credential |
+| `SUPPORT_API_KEY` | yes | none | Bearer token required by `POST /support/ask` |
+| `OPENAI_MODEL` | no | `gpt-4o-mini` | Configurable OpenAI model ID |
+| `HOST` | no | `127.0.0.1` | Listen address |
+| `PORT` | no | `3000` | Listen port |
+| `REQUEST_TIMEOUT_MS` | no | `12000` | Timeout for each OpenAI request attempt |
+| `RATE_LIMIT_WINDOW_MS` | no | `60000` | Rate-limit window in milliseconds |
+| `RATE_LIMIT_MAX` | no | `30` | Requests allowed per IP and window |
+| `TRUST_PROXY_HOPS` | no | `0` | Number of trusted reverse proxies used to resolve client IPs |
+
+Set `TRUST_PROXY_HOPS` only when the deployment topology is known. An incorrect value can make IP-based rate limiting unreliable.
+
+## Error Contract
+
+| HTTP status | Error code | Meaning |
+| --- | --- | --- |
+| `400` | `invalid_request` | Missing, empty, non-string, or oversized question |
+| `400` | `invalid_json` | Malformed JSON request body |
+| `401` | `unauthorized` | Missing or invalid bearer token |
+| `404` | `not_found` | Unknown route |
+| `413` | `payload_too_large` | Request body exceeds 32 KB |
+| `429` | `rate_limited` | Inbound per-IP limit exceeded |
+| `502` | `provider_error` | Unexpected provider failure |
+| `503` | `service_not_ready` | Required server configuration is missing |
+| `503` | `provider_rate_limited` | OpenAI rate limit reached after retries |
+| `504` | `provider_timeout` | OpenAI request timed out or was aborted |
+
+Provider error details are logged server-side and are not returned to callers.
+
+## Verification
 
 ```bash
 npm test
+npm run check
+npm audit
 ```
 
-The tests validate:
+The test suite covers configuration validation, prompts, request validation, the Responses API adapter, real OpenAI SDK error classes, authentication, health endpoints, malformed JSON, request-size limits, rate limiting, stable provider errors, and 404 responses. Tests use an injected provider function and do not require API credentials.
 
-- Request payload validation
-- Prompt generation
-- Error mapping for rate limits, timeouts, and provider errors
+## Deployment Boundaries
 
-## Error Responses
+This code is production-oriented, but the repository does not claim a production deployment. Before serving real users:
 
-Invalid request:
+- replace the fictional context in `src/supportContext.js` with reviewed business data;
+- document disclosure and retention rules for data sent to OpenAI;
+- use a managed secret store rather than a committed environment file;
+- replace the in-memory rate-limit store for multi-instance deployments;
+- add centralized logs, metrics, alerts, and cost monitoring;
+- run representative answer-quality and prompt-injection evaluations;
+- configure TLS and proxy trust at the deployment layer;
+- choose and benchmark the model for the actual latency, quality, and cost requirements.
 
-```json
-{
-  "error": "invalid_request",
-  "message": "Question cannot be empty."
-}
-```
-
-Rate limit:
-
-```json
-{
-  "error": "rate_limited",
-  "message": "The AI provider is currently rate limited. Please try again shortly."
-}
-```
-
-Timeout:
-
-```json
-{
-  "error": "timeout",
-  "message": "The AI provider took too long to respond."
-}
-```
-
-## Business Value
-
-This type of API helps businesses answer common support questions faster, reduce repetitive manual replies, keep AI responses aligned with approved company information, and create a foundation that can later be connected to a chatbot, website form, CRM, helpdesk, or internal support workflow.
-
-## Portfolio Context
-
-This is a portfolio case study built to show how a lightweight OpenAI-powered support API can be structured, tested, and documented. It demonstrates practical production patterns such as prompt design, input validation, environment-based configuration, provider error handling, timeout handling, and clear setup instructions.
-
-It can be adapted for customer support widgets, internal helpdesk tools, lead intake forms, FAQ assistants, and lightweight AI support workflows.
+No real client data or client deployment is included in this repository.

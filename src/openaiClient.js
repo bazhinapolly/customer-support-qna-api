@@ -1,46 +1,53 @@
 import OpenAI from "openai";
 import { buildSystemPrompt, buildUserPrompt } from "./prompt.js";
-import { supportContext } from "./supportContext.js";
+import { fictionalSupportContext } from "./supportContext.js";
 
-export function createOpenAIClient(apiKey) {
-  return new OpenAI({ apiKey });
+export function createOpenAIClient({ apiKey, timeoutMs }) {
+  return new OpenAI({
+    apiKey,
+    timeout: timeoutMs,
+    maxRetries: 2
+  });
 }
 
 export async function answerSupportQuestion({
   client,
   question,
-  model = "gpt-4o-mini",
-  timeoutMs = 12000
+  model,
+  timeoutMs
 }) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const completion = await client.chat.completions.create(
-      {
-        model,
-        temperature: 0.2,
-        max_tokens: 350,
-        messages: [
-          { role: "system", content: buildSystemPrompt(supportContext) },
-          { role: "user", content: buildUserPrompt(question) }
-        ]
-      },
-      { signal: controller.signal }
-    );
-
-    const answer = completion.choices?.[0]?.message?.content?.trim();
-
-    if (!answer) {
-      throw new Error("OpenAI response did not include an answer.");
-    }
-
-    return {
-      answer,
+  const response = await client.responses.create(
+    {
       model,
-      usage: completion.usage || null
-    };
-  } finally {
-    clearTimeout(timeout);
+      instructions: buildSystemPrompt(fictionalSupportContext),
+      input: buildUserPrompt(question),
+      max_output_tokens: 350,
+      temperature: 0.2
+    },
+    { timeout: timeoutMs }
+  );
+
+  const answer = response.output_text?.trim();
+
+  if (!answer) {
+    throw new Error("OpenAI response did not include answer text.");
   }
+
+  return {
+    answer,
+    model: response.model || model,
+    usage: normalizeUsage(response.usage)
+  };
+}
+
+function normalizeUsage(usage) {
+  if (!usage) {
+    return null;
+  }
+
+  return {
+    input_tokens: usage.input_tokens ?? null,
+    output_tokens: usage.output_tokens ?? null,
+    total_tokens: usage.total_tokens ?? null
+  };
 }

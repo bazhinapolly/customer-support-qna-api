@@ -1,64 +1,55 @@
 import "dotenv/config";
-import express from "express";
+import { createApp } from "./app.js";
+import { loadConfig } from "./config.js";
 import { answerSupportQuestion, createOpenAIClient } from "./openaiClient.js";
-import { mapOpenAIError, validateQuestionPayload } from "./validation.js";
 
-const app = express();
-const port = Number(process.env.PORT || 3000);
-const host = process.env.HOST || "127.0.0.1";
-const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const timeoutMs = Number(process.env.REQUEST_TIMEOUT_MS || 12000);
+let config;
 
-app.use(express.json({ limit: "32kb" }));
+try {
+  config = loadConfig();
+} catch (error) {
+  console.error(`Configuration error: ${error.message}`);
+  process.exitCode = 1;
+  throw error;
+}
 
-app.get("/health", (req, res) => {
-  res.json({ ok: true });
-});
+const client = config.openAIApiKey
+  ? createOpenAIClient({
+      apiKey: config.openAIApiKey,
+      timeoutMs: config.timeoutMs
+    })
+  : null;
 
-app.post("/support/ask", async (req, res) => {
-  const validation = validateQuestionPayload(req.body);
-
-  if (!validation.ok) {
-    return res.status(400).json({
-      error: "invalid_request",
-      message: validation.message
-    });
-  }
-
-  if (!process.env.OPENAI_API_KEY) {
-    return res.status(500).json({
-      error: "missing_configuration",
-      message: "OPENAI_API_KEY is not configured."
-    });
-  }
-
-  try {
-    const client = createOpenAIClient(process.env.OPENAI_API_KEY);
-    const result = await answerSupportQuestion({
+const app = createApp({
+  config,
+  answerQuestion(question) {
+    return answerSupportQuestion({
       client,
-      question: validation.question,
-      model,
-      timeoutMs
+      question,
+      model: config.model,
+      timeoutMs: config.timeoutMs
     });
-
-    return res.json(result);
-  } catch (error) {
-    const mapped = mapOpenAIError(error);
-    return res.status(mapped.statusCode).json(mapped.body);
   }
 });
 
-app.use((req, res) => {
-  res.status(404).json({
-    error: "not_found",
-    message: "Endpoint not found."
-  });
+const server = app.listen(config.port, config.host, () => {
+  console.log(`Customer Support Q&A API listening on http://${config.host}:${config.port}`);
 });
 
-if (process.env.NODE_ENV !== "test") {
-  app.listen(port, host, () => {
-    console.log(`Customer support Q&A API running on http://${host}:${port}`);
+server.on("error", (error) => {
+  console.error("HTTP server error", error);
+  process.exitCode = 1;
+});
+
+function shutDown(signal) {
+  console.log(`${signal} received; closing HTTP server.`);
+  server.close((error) => {
+    if (error) {
+      console.error("Failed to close HTTP server", error);
+      process.exitCode = 1;
+    }
   });
 }
 
-export default app;
+process.once("SIGINT", () => shutDown("SIGINT"));
+process.once("SIGTERM", () => shutDown("SIGTERM"));

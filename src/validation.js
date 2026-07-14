@@ -1,10 +1,15 @@
+const MAX_QUESTION_LENGTH = 2000;
+
 export function validateQuestionPayload(payload) {
-  if (!payload || typeof payload !== "object") {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return { ok: false, message: "Request body must be a JSON object." };
   }
 
   if (typeof payload.question !== "string") {
-    return { ok: false, message: "Field 'question' is required and must be a string." };
+    return {
+      ok: false,
+      message: "Field 'question' is required and must be a string."
+    };
   }
 
   const question = payload.question.trim();
@@ -13,33 +18,41 @@ export function validateQuestionPayload(payload) {
     return { ok: false, message: "Question cannot be empty." };
   }
 
-  if (question.length > 2000) {
-    return { ok: false, message: "Question is too long. Maximum length is 2000 characters." };
+  if (question.length > MAX_QUESTION_LENGTH) {
+    return {
+      ok: false,
+      message: `Question is too long. Maximum length is ${MAX_QUESTION_LENGTH} characters.`
+    };
   }
 
   return { ok: true, question };
 }
 
 export function mapOpenAIError(error) {
-  const status = error?.status || error?.response?.status;
-  const code = error?.code || error?.name;
+  const status = error?.status ?? error?.response?.status;
+  const name = error?.constructor?.name || error?.name;
 
-  if (status === 429) {
+  if (status === 429 || name === "RateLimitError") {
     return {
-      statusCode: 429,
+      statusCode: 503,
       body: {
-        error: "rate_limited",
-        message: "The AI provider is currently rate limited. Please try again shortly."
+        error: "provider_rate_limited",
+        message: "The answer service is temporarily unavailable. Please try again later."
       }
     };
   }
 
-  if (code === "AbortError" || code === "TimeoutError") {
+  if (
+    name === "APIConnectionTimeoutError" ||
+    name === "APIUserAbortError" ||
+    name === "AbortError" ||
+    name === "TimeoutError"
+  ) {
     return {
       statusCode: 504,
       body: {
-        error: "timeout",
-        message: "The AI provider took too long to respond."
+        error: "provider_timeout",
+        message: "The answer service took too long to respond."
       }
     };
   }
@@ -47,8 +60,8 @@ export function mapOpenAIError(error) {
   return {
     statusCode: 502,
     body: {
-      error: "ai_provider_error",
-      message: "The AI provider returned an unexpected error."
+      error: "provider_error",
+      message: "The answer service returned an unexpected error."
     }
   };
 }

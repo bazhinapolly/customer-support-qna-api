@@ -1,6 +1,7 @@
-.DS_Store
-.env
 node_modules/
-*.log
+.env
+.env.*
+!.env.example
 coverage/
-dist/
+*.log
+.DS_Store

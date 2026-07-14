@@ -1,17 +1,23 @@
 {
   "name": "customer-support-qna-api",
-  "version": "1.0.0",
-  "description": "Portfolio case study: customer support Q&A REST API using OpenAI.",
-  "main": "src/server.js",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Authenticated OpenAI-backed customer support Q&A REST API.",
   "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "start": "node src/server.js",
-    "test": "node test/run-tests.js"
+    "test": "node --test",
+    "check": "node --check src/*.js && node --test"
   },
   "dependencies": {
-    "dotenv": "^16.4.7",
-    "express": "^4.18.3",
-    "openai": "^4.85.4"
-  },
-  "devDependencies": {}
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.3.0",
+    "openai": "^6.46.0"
+  }
 }

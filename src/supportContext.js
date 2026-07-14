@@ -1,4 +1,5 @@
-export const supportContext = `
+// Fictional data used only to make the repository runnable without client data.
+export const fictionalSupportContext = `
 Company: Northstar Home Services
 Business type: residential cleaning and maintenance company
 
