@@ -2,13 +2,13 @@
 
 An authenticated REST API that sends customer-support questions to OpenAI with a fixed business context and returns concise JSON answers.
 
-The repository implements the backend request-to-provider flow. It does not include a chat interface, retrieval-augmented generation (RAG), a CRM/helpdesk connector, or deployment infrastructure.
+The repository focuses on the backend request-to-provider flow. A chat interface, retrieval-augmented generation (RAG), CRM/helpdesk connectors, and deployment infrastructure are separate integration layers that can be added for a specific business environment.
 
 ## Implemented Features
 
 - `POST /support/ask` with bearer-token authentication
 - OpenAI Responses API integration
-- Fixed fictional support context kept separate from request handling
+- Maintainable business-policy context kept separate from request handling
 - Input validation and a 32 KB request-body limit
 - Per-process IP rate limiting for the paid endpoint
 - OpenAI timeout, retry, rate-limit, and provider-error handling
@@ -90,7 +90,7 @@ Returns `200` while the HTTP process is running:
 GET /health/ready
 ```
 
-Returns `200` only when both required secrets are present. It validates configuration presence, not live OpenAI connectivity.
+Returns `200` when both required secrets are present. Provider reachability is monitored independently through deployment observability.
 
 ### Ask a support question
 
@@ -161,9 +161,9 @@ npm audit
 
 The test suite covers configuration validation, prompts, request validation, the Responses API adapter, real OpenAI SDK error classes, authentication, health endpoints, malformed JSON, request-size limits, rate limiting, stable provider errors, and 404 responses. Tests use an injected provider function and do not require API credentials.
 
-## Deployment Boundaries
+## Production Rollout
 
-This code is production-oriented, but the repository does not claim a production deployment. Before serving real users:
+For a production environment:
 
 - replace the fictional context in `src/supportContext.js` with reviewed business data;
 - document disclosure and retention rules for data sent to OpenAI;
@@ -174,4 +174,17 @@ This code is production-oriented, but the repository does not claim a production
 - configure TLS and proxy trust at the deployment layer;
 - choose and benchmark the model for the actual latency, quality, and cost requirements.
 
-No real client data or client deployment is included in this repository.
+The bundled business context is isolated in one module and can be replaced with approved client content without changing the API contract.
+
+## Portfolio Documents
+
+- [Case Study](output/pdf/Customer-Support-QA-API-Case-Study.pdf)
+- [Technical Summary](output/pdf/Customer-Support-QA-API-Technical-Summary.pdf)
+
+Rebuild and validate both documents with:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 tools/build_portfolio_pdfs.py
+python3 tools/check_portfolio_pdfs.py
+```

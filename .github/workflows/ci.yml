@@ -30,3 +30,15 @@ jobs:
 
       - name: Run checks
         run: npm run check
+
+  portfolio-pdfs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python tools/build_portfolio_pdfs.py
+      - run: python tools/check_portfolio_pdfs.py
