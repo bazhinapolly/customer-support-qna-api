@@ -1,0 +1,29 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title":"Customer Support Q&A API","version":"2.1.0","description":"Authenticated API for policy-grounded customer-support answers."},
+  "servers": [{"url":"http://127.0.0.1:3000"}],
+  "paths": {
+    "/health/live": {"get":{"summary":"Process liveness","responses":{"200":{"description":"Process is running","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Health"}}}}}}},
+    "/health/ready": {"get":{"summary":"Configuration readiness","responses":{"200":{"description":"Required configuration is present"},"503":{"$ref":"#/components/responses/ServiceUnavailable"}}}},
+    "/support/ask": {"post":{"summary":"Answer one customer-support question","security":[{"bearerAuth":[]}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/QuestionRequest"}}}},"responses":{"200":{"description":"Completed provider answer","content":{"application/json":{"schema":{"$ref":"#/components/schemas/AnswerResponse"}}}},"400":{"$ref":"#/components/responses/BadRequest"},"401":{"$ref":"#/components/responses/Unauthorized"},"413":{"$ref":"#/components/responses/PayloadTooLarge"},"429":{"$ref":"#/components/responses/RateLimited"},"502":{"$ref":"#/components/responses/ProviderError"},"503":{"$ref":"#/components/responses/ServiceUnavailable"},"504":{"$ref":"#/components/responses/ProviderTimeout"}}}}
+  },
+  "components": {
+    "securitySchemes":{"bearerAuth":{"type":"http","scheme":"bearer"}},
+    "schemas": {
+      "Health":{"type":"object","additionalProperties":false,"required":["status"],"properties":{"status":{"type":"string","enum":["ok","ready","not_ready"]}}},
+      "QuestionRequest":{"type":"object","additionalProperties":true,"required":["question"],"properties":{"question":{"type":"string","minLength":1,"maxLength":2000}}},
+      "Usage":{"type":["object","null"],"properties":{"input_tokens":{"type":["integer","null"],"minimum":0},"output_tokens":{"type":["integer","null"],"minimum":0},"total_tokens":{"type":["integer","null"],"minimum":0}}},
+      "AnswerResponse":{"type":"object","additionalProperties":false,"required":["answer","model","usage"],"properties":{"answer":{"type":"string","minLength":1},"model":{"type":"string","minLength":1},"usage":{"$ref":"#/components/schemas/Usage"}}},
+      "Error":{"type":"object","required":["error","message"],"properties":{"error":{"type":"string"},"message":{"type":"string"}}}
+    },
+    "responses": {
+      "BadRequest":{"description":"Invalid request","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}},
+      "Unauthorized":{"description":"Missing or invalid bearer token","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}},
+      "PayloadTooLarge":{"description":"Request body exceeds 32 KB","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}},
+      "RateLimited":{"description":"Inbound rate limit reached","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}},
+      "ProviderError":{"description":"Provider did not return a complete answer","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}},
+      "ServiceUnavailable":{"description":"Configuration or provider capacity unavailable","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}},
+      "ProviderTimeout":{"description":"Provider timed out","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}
+    }
+  }
+}

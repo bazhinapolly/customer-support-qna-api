@@ -11,13 +11,14 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test",
-    "check": "node --check src/*.js && node --test"
+    "check": "node --check src/*.js scripts/*.mjs && node scripts/check-openapi.mjs && node scripts/evaluate.mjs --validate && node --test",
+    "eval:openai": "node scripts/evaluate.mjs"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.3.0",
-    "openai": "^6.46.0"
+    "openai": "^6.47.0"
   }
 }

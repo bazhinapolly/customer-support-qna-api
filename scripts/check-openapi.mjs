@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+const contract = JSON.parse(await readFile(new URL("../openapi.yaml", import.meta.url), "utf8"));
+assert.match(contract.openapi, /^3\.1\./, "OpenAPI 3.1 contract is required");
+assert.ok(contract.components?.securitySchemes?.bearerAuth, "bearerAuth security scheme is required");
+for (const route of ["/health/live", "/health/ready", "/support/ask"]) assert.ok(contract.paths?.[route], `OpenAPI route is missing: ${route}`);
+const ask = contract.paths["/support/ask"].post;
+assert.deepEqual(ask.security, [{ bearerAuth: [] }]);
+assert.equal(contract.components.schemas.QuestionRequest.properties.question.maxLength, 2000);
+for (const status of ["200","400","401","413","429","502","503","504"]) assert.ok(ask.responses[status], `OpenAPI response is missing: ${status}`);
+console.log("OpenAPI contract checks passed.");

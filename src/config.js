@@ -45,6 +45,8 @@ export function loadConfig(env = process.env) {
     supportApiKey: normalizeSecret(env.SUPPORT_API_KEY)
   };
 
+  validateSecrets(config);
+
   return config;
 }
 
@@ -74,4 +76,17 @@ function parseInteger(rawValue, name, fallback, min, max) {
 
 function normalizeSecret(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function validateSecrets(config) {
+  if (config.supportApiKey && !isStrongSupportApiKey(config.supportApiKey)) {
+    throw new Error("SUPPORT_API_KEY must be a securely generated 32-byte secret encoded as at least 64 hexadecimal or 43 base64url characters.");
+  }
+  if (config.supportApiKey && config.openAIApiKey && config.supportApiKey === config.openAIApiKey) {
+    throw new Error("SUPPORT_API_KEY must be independent from OPENAI_API_KEY.");
+  }
+}
+
+function isStrongSupportApiKey(value) {
+  return /^[a-fA-F0-9]{64,}$/.test(value) || /^[A-Za-z0-9_-]{43,}$/.test(value);
 }

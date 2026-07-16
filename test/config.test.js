@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { getMissingSecrets, loadConfig } from "../src/config.js";
 
+const SUPPORT_SECRET = "a".repeat(64);
+
 test("loadConfig applies documented defaults", () => {
   const config = loadConfig({
     OPENAI_API_KEY: "openai-secret",
-    SUPPORT_API_KEY: "support-secret"
+    SUPPORT_API_KEY: SUPPORT_SECRET
   });
 
   assert.equal(config.host, "127.0.0.1");
@@ -13,6 +15,12 @@ test("loadConfig applies documented defaults", () => {
   assert.equal(config.timeoutMs, 12000);
   assert.equal(config.trustProxyHops, 0);
   assert.deepEqual(getMissingSecrets(config), []);
+});
+
+test("loadConfig rejects weak or reused inbound credentials", () => {
+  assert.throws(() => loadConfig({ OPENAI_API_KEY: "openai-secret", SUPPORT_API_KEY: "short" }), /32-byte secret/);
+  assert.throws(() => loadConfig({ OPENAI_API_KEY: SUPPORT_SECRET, SUPPORT_API_KEY: SUPPORT_SECRET }), /independent/);
+  assert.doesNotThrow(() => loadConfig({ OPENAI_API_KEY: "openai-secret", SUPPORT_API_KEY: "A".repeat(43) }));
 });
 
 test("loadConfig rejects invalid numeric configuration", () => {

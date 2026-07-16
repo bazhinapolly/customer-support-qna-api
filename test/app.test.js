@@ -5,11 +5,12 @@ import { createApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
 
 const silentLogger = { error() {} };
+const SUPPORT_SECRET = "a".repeat(64);
 
 function buildApp(overrides = {}) {
   const config = loadConfig({
     OPENAI_API_KEY: "openai-secret",
-    SUPPORT_API_KEY: "support-secret",
+    SUPPORT_API_KEY: SUPPORT_SECRET,
     RATE_LIMIT_MAX: "100",
     ...overrides.env
   });
@@ -47,7 +48,7 @@ async function requestApp(app, path, options = {}) {
   }
 }
 
-function jsonRequest(body, token = "support-secret") {
+function jsonRequest(body, token = SUPPORT_SECRET) {
   return {
     method: "POST",
     headers: {

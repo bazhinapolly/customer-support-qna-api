@@ -1,5 +1,7 @@
 # Customer Support Q&A API
 
+[![CI](https://github.com/bazhinapolly/customer-support-qna-api/actions/workflows/ci.yml/badge.svg)](https://github.com/bazhinapolly/customer-support-qna-api/actions/workflows/ci.yml)
+
 An authenticated REST API that sends customer-support questions to OpenAI with a fixed business context and returns concise JSON answers.
 
 The repository focuses on the backend request-to-provider flow. A chat interface, retrieval-augmented generation (RAG), CRM/helpdesk connectors, and deployment infrastructure are separate integration layers that can be added for a specific business environment.
@@ -8,6 +10,7 @@ The repository focuses on the backend request-to-provider flow. A chat interface
 
 - `POST /support/ask` with bearer-token authentication
 - OpenAI Responses API integration
+- Explicit `store: false` provider requests and completed-response enforcement
 - Maintainable business-policy context kept separate from request handling
 - Input validation and a 32 KB request-body limit
 - Per-process IP rate limiting for the paid endpoint
@@ -15,7 +18,7 @@ The repository focuses on the backend request-to-provider flow. A chat interface
 - Stable JSON errors for malformed JSON, oversized bodies, unknown routes, and provider failures
 - Separate liveness and readiness endpoints
 - Security headers through Helmet
-- Startup validation for numeric configuration
+- Startup validation for numeric configuration and independent 32-byte inbound secrets
 - Graceful shutdown on `SIGINT` and `SIGTERM`
 - Unit and HTTP integration tests with no paid API calls
 - GitHub Actions checks on supported Node.js versions
@@ -28,7 +31,8 @@ HTTP request
   -> bearer-token authentication
   -> payload validation
   -> fixed support instructions + customer question
-  -> OpenAI Responses API
+  -> OpenAI Responses API (store: false)
+  -> completed/refusal/incomplete validation
   -> normalized JSON response
 ```
 
@@ -92,6 +96,8 @@ GET /health/ready
 
 Returns `200` when both required secrets are present. Provider reachability is monitored independently through deployment observability.
 
+The complete machine-readable contract is available in [`openapi.yaml`](openapi.yaml) and is validated by `npm run check`.
+
 ### Ask a support question
 
 ```bash
@@ -151,6 +157,14 @@ Set `TRUST_PROXY_HOPS` only when the deployment topology is known. An incorrect 
 
 Provider error details are logged server-side and are not returned to callers.
 
+## Privacy and OpenAI data controls
+
+The service sends the complete normalized customer question and the maintained business-policy context to the configured OpenAI project. Do not submit unnecessary personal, payment, health, legal, credential, or other sensitive data. Add application-specific redaction before deployment when the intake channel can contain such information.
+
+Every Responses API request explicitly sets `store: false`, which disables Responses application-state storage for this request. This does not by itself remove separate abuse-monitoring logs. OpenAI documents that those logs may contain customer content and are retained for up to 30 days by default; eligible organizations can apply for Modified Abuse Monitoring or Zero Data Retention. Review the current [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data) and the selected project's settings before processing real customer data.
+
+The application accepts only `status: completed` responses with non-empty answer text. Incomplete results, refusals, provider errors, and missing output are returned through the stable provider-error contract instead of being presented as successful answers.
+
 ## Verification
 
 ```bash
@@ -159,7 +173,15 @@ npm run check
 npm audit
 ```
 
-The test suite covers configuration validation, prompts, request validation, the Responses API adapter, real OpenAI SDK error classes, authentication, health endpoints, malformed JSON, request-size limits, rate limiting, stable provider errors, and 404 responses. Tests use an injected provider function and do not require API credentials.
+The test suite covers configuration and credential validation, prompts, request validation, the Responses API adapter, storage opt-out, incomplete results and refusals, real OpenAI SDK error classes, authentication, health endpoints, malformed JSON, request-size limits, rate limiting, stable provider errors, and 404 responses. Tests use an injected provider function and do not require API credentials.
+
+The repository also validates the OpenAPI contract and a versioned quality-evaluation dataset. A paid model evaluation can be run without storing answers:
+
+```bash
+OPENAI_API_KEY='your-key' OPENAI_MODEL='gpt-4o-mini' npm run eval:openai
+```
+
+The evaluation set covers factual grounding, escalation, unsupported policies, and prompt-injection attempts. No live score is claimed in the repository until the command is run against the chosen model and reviewed for the target business context.
 
 ## Production Rollout
 
@@ -188,3 +210,7 @@ python3 -m pip install -r requirements-dev.txt
 python3 tools/build_portfolio_pdfs.py
 python3 tools/check_portfolio_pdfs.py
 ```
+
+## License
+
+[MIT](LICENSE) - Copyright 2026 Polina Bazhina.

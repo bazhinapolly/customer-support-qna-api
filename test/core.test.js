@@ -36,6 +36,8 @@ test("answerSupportQuestion calls the Responses API and normalizes output", asyn
         capturedRequest = request;
         capturedOptions = options;
         return {
+          status: "completed",
+          output: [],
           output_text: "  We are open Monday to Friday.  ",
           model: "test-model-2026-01-01",
           usage: { input_tokens: 10, output_tokens: 8, total_tokens: 18 }
@@ -52,6 +54,7 @@ test("answerSupportQuestion calls the Responses API and normalizes output", asyn
   });
 
   assert.equal(capturedRequest.model, "test-model");
+  assert.equal(capturedRequest.store, false);
   assert.match(capturedRequest.instructions, /Northstar Home Services/);
   assert.match(capturedRequest.input, /When are you open\?/);
   assert.deepEqual(capturedOptions, { timeout: 2500 });
@@ -64,7 +67,7 @@ test("answerSupportQuestion calls the Responses API and normalizes output", asyn
 
 test("answerSupportQuestion rejects an empty provider response", async () => {
   const client = {
-    responses: { async create() { return { output_text: "" }; } }
+    responses: { async create() { return { status: "completed", output: [], output_text: "" }; } }
   };
 
   await assert.rejects(
@@ -74,8 +77,18 @@ test("answerSupportQuestion rejects an empty provider response", async () => {
       model: "test-model",
       timeoutMs: 2500
     }),
-    /did not include answer text/
+    /did not include completed answer text/
   );
+});
+
+test("answerSupportQuestion rejects incomplete responses even when text exists", async () => {
+  const client = { responses: { async create() { return { status: "incomplete", incomplete_details: { reason: "max_output_tokens" }, output_text: "A partial answer" }; } } };
+  await assert.rejects(answerSupportQuestion({ client, question: "Question", model: "test", timeoutMs: 1000 }), (error) => error.code === "incomplete_response");
+});
+
+test("answerSupportQuestion rejects provider refusals", async () => {
+  const client = { responses: { async create() { return { status: "completed", output_text: "This must not be returned", output: [{ content: [{ type: "refusal", refusal: "Unable" }] }] }; } } };
+  await assert.rejects(answerSupportQuestion({ client, question: "Question", model: "test", timeoutMs: 1000 }), (error) => error.code === "provider_refusal");
 });
 
 test("mapOpenAIError recognizes real OpenAI SDK error classes", () => {
