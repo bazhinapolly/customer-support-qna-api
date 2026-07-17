@@ -1,10 +1,12 @@
 const DEFAULTS = Object.freeze({
   host: "127.0.0.1",
   port: 3000,
-  model: "gpt-4o-mini",
+  model: "gpt-4o-mini-2024-07-18",
   timeoutMs: 12000,
   rateLimitWindowMs: 60000,
   rateLimitMax: 30,
+  authFailureRateLimitMax: 20,
+  redactPii: true,
   trustProxyHops: 0
 });
 
@@ -34,6 +36,13 @@ export function loadConfig(env = process.env) {
       1,
       10000
     ),
+    authFailureRateLimitMax: parseInteger(
+      env.AUTH_FAILURE_RATE_LIMIT_MAX,
+      "AUTH_FAILURE_RATE_LIMIT_MAX",
+      DEFAULTS.authFailureRateLimitMax,
+      1,
+      10000
+    ),
     trustProxyHops: parseInteger(
       env.TRUST_PROXY_HOPS,
       "TRUST_PROXY_HOPS",
@@ -42,12 +51,21 @@ export function loadConfig(env = process.env) {
       10
     ),
     openAIApiKey: normalizeSecret(env.OPENAI_API_KEY),
-    supportApiKey: normalizeSecret(env.SUPPORT_API_KEY)
+    supportApiKey: normalizeSecret(env.SUPPORT_API_KEY),
+    redactPii: parseBoolean(env.REDACT_PII, "REDACT_PII", DEFAULTS.redactPii)
   };
 
   validateSecrets(config);
 
   return config;
+}
+
+function parseBoolean(rawValue, name, fallback) {
+  if (rawValue === undefined || rawValue === "") return fallback;
+  const value = String(rawValue).trim().toLowerCase();
+  if (["1", "true", "yes"].includes(value)) return true;
+  if (["0", "false", "no"].includes(value)) return false;
+  throw new Error(`${name} must be 0 or 1.`);
 }
 
 export function getMissingSecrets(config) {

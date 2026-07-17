@@ -8,4 +8,7 @@ const ask = contract.paths["/support/ask"].post;
 assert.deepEqual(ask.security, [{ bearerAuth: [] }]);
 assert.equal(contract.components.schemas.QuestionRequest.properties.question.maxLength, 2000);
 for (const status of ["200","400","401","413","429","502","503","504"]) assert.ok(ask.responses[status], `OpenAPI response is missing: ${status}`);
+const readiness = contract.paths["/health/ready"].get.responses;
+assert.equal(readiness["200"].content["application/json"].schema.$ref, "#/components/schemas/ReadinessReady");
+assert.equal(readiness["503"].content["application/json"].schema.$ref, "#/components/schemas/ReadinessNotReady");
 console.log("OpenAPI contract checks passed.");

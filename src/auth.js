@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-export function createApiKeyMiddleware(expectedApiKey) {
+export function createApiKeyMiddleware(expectedApiKey, authFailureTracker = null) {
   return function requireApiKey(req, res, next) {
     if (!expectedApiKey) {
       return res.status(503).json({
@@ -17,6 +17,14 @@ export function createApiKeyMiddleware(expectedApiKey) {
       scheme?.toLowerCase() !== "bearer" ||
       !safeEqual(suppliedApiKey, expectedApiKey)
     ) {
+      const failure = authFailureTracker?.record(req.ip || req.socket?.remoteAddress);
+      if (failure && !failure.allowed) {
+        res.set("Retry-After", String(failure.retryAfterSeconds));
+        return res.status(429).json({
+          error: "auth_rate_limited",
+          message: "Too many failed authentication attempts. Please try again later."
+        });
+      }
       res.set("WWW-Authenticate", "Bearer");
       return res.status(401).json({
         error: "unauthorized",

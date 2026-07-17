@@ -13,6 +13,8 @@ test("loadConfig applies documented defaults", () => {
   assert.equal(config.host, "127.0.0.1");
   assert.equal(config.port, 3000);
   assert.equal(config.timeoutMs, 12000);
+  assert.equal(config.model, "gpt-4o-mini-2024-07-18");
+  assert.equal(config.redactPii, true);
   assert.equal(config.trustProxyHops, 0);
   assert.deepEqual(getMissingSecrets(config), []);
 });
@@ -32,6 +34,7 @@ test("loadConfig rejects invalid numeric configuration", () => {
     () => loadConfig({ REQUEST_TIMEOUT_MS: "0" }),
     /REQUEST_TIMEOUT_MS must be an integer/
   );
+  assert.throws(() => loadConfig({ REDACT_PII: "maybe" }), /REDACT_PII/);
 });
 
 test("getMissingSecrets reports readiness requirements", () => {

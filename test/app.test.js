@@ -3,6 +3,7 @@ import { once } from "node:events";
 import test from "node:test";
 import { createApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
+import { readFile } from "node:fs/promises";
 
 const silentLogger = { error() {} };
 const SUPPORT_SECRET = "a".repeat(64);
@@ -96,6 +97,29 @@ test("support endpoint requires a valid bearer token", async () => {
   assert.equal(invalid.status, 401);
 });
 
+test("failed authentication has its own limiter and missing configuration stays unavailable", async () => {
+  const app = buildApp({ env: { AUTH_FAILURE_RATE_LIMIT_MAX: "1" } });
+  const first = await requestApp(app, "/support/ask", jsonRequest({ question: "Question" }, "wrong-one"));
+  const second = await requestApp(app, "/support/ask", jsonRequest({ question: "Question" }, "wrong-two"));
+  assert.equal(first.status, 401);
+  assert.equal(second.status, 429);
+  assert.equal(second.body.error, "auth_rate_limited");
+
+  const missingBoth = await requestApp(
+    buildApp({ env: { OPENAI_API_KEY: "", SUPPORT_API_KEY: "" } }),
+    "/support/ask",
+    jsonRequest({ question: "Question" })
+  );
+  assert.equal(missingBoth.status, 503);
+
+  const missingProvider = await requestApp(
+    buildApp({ env: { OPENAI_API_KEY: "" } }),
+    "/support/ask",
+    jsonRequest({ question: "Question" })
+  );
+  assert.equal(missingProvider.status, 503);
+});
+
 test("support endpoint validates input and returns the provider result", async () => {
   const invalid = await requestApp(
     buildApp(),
@@ -173,6 +197,9 @@ test("rate limiter protects the paid endpoint", async () => {
   const url = `http://127.0.0.1:${port}/support/ask`;
 
   try {
+    const invalid = await fetch(url, jsonRequest({ question: "Invalid token" }, "wrong-secret"));
+    assert.equal(invalid.status, 401);
+
     const first = await fetch(url, jsonRequest({ question: "First question" }));
     assert.equal(first.status, 200);
 
@@ -187,6 +214,58 @@ test("rate limiter protects the paid endpoint", async () => {
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test("PII is redacted before the provider and sensitive categories never call it", async () => {
+  const received = [];
+  const app = buildApp({ answerQuestion: async (question) => {
+    received.push(question);
+    return { answer: "ok", model: "test", usage: null };
+  }});
+  const redacted = await requestApp(app, "/support/ask", jsonRequest({
+    question: "Please reply to alex@example.com or +1 (212) 555-0199."
+  }));
+  assert.equal(redacted.status, 200);
+  assert.equal(received.length, 1);
+  assert.doesNotMatch(received[0], /alex@example\.com|555-0199/);
+
+  const denied = await requestApp(app, "/support/ask", jsonRequest({
+    question: "My credit card number needs support."
+  }));
+  assert.equal(denied.status, 400);
+  assert.equal(denied.body.error, "sensitive_content");
+  assert.equal(received.length, 1);
+});
+
+test("readiness responses conform to their OpenAPI schemas", async () => {
+  const contract = JSON.parse(await readFile(new URL("../openapi.yaml", import.meta.url), "utf8"));
+  const responses = contract.paths["/health/ready"].get.responses;
+  const ready = await requestApp(buildApp(), "/health/ready");
+  const notReady = await requestApp(buildApp({ env: { OPENAI_API_KEY: "", SUPPORT_API_KEY: "" } }), "/health/ready");
+  validateObjectSchema(ready.body, resolveSchema(responses[String(ready.status)], contract));
+  validateObjectSchema(notReady.body, resolveSchema(responses[String(notReady.status)], contract));
+});
+
+function resolveSchema(response, contract) {
+  const schema = response.content["application/json"].schema;
+  return schema.$ref
+    ? schema.$ref.split("/").slice(1).reduce((value, part) => value[part], contract)
+    : schema;
+}
+
+function validateObjectSchema(value, schema) {
+  assert.equal(typeof value, "object");
+  for (const key of schema.required || []) assert.ok(Object.hasOwn(value, key), `missing ${key}`);
+  if (schema.additionalProperties === false) {
+    for (const key of Object.keys(value)) assert.ok(Object.hasOwn(schema.properties, key), `unexpected ${key}`);
+  }
+  for (const [key, property] of Object.entries(schema.properties || {})) {
+    if (!Object.hasOwn(value, key)) continue;
+    if (property.type === "string") assert.equal(typeof value[key], "string");
+    if (property.type === "array") assert.ok(Array.isArray(value[key]));
+    if (property.enum) assert.ok(property.enum.includes(value[key]));
+    if (property.items?.enum) for (const item of value[key]) assert.ok(property.items.enum.includes(item));
+  }
+}
 
 test("unknown routes return JSON 404", async () => {
   const response = await requestApp(buildApp(), "/missing");

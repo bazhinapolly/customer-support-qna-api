@@ -4,6 +4,8 @@ import OpenAI from "openai";
 import { answerSupportQuestion } from "../src/openaiClient.js";
 import { buildSystemPrompt, buildUserPrompt } from "../src/prompt.js";
 import { mapOpenAIError, validateQuestionPayload } from "../src/validation.js";
+import { preprocessQuestion } from "../src/preprocess.js";
+import { createAuthFailureTracker } from "../src/rateLimiter.js";
 
 test("validateQuestionPayload rejects invalid payloads and normalizes a question", () => {
   assert.equal(validateQuestionPayload(null).ok, false);
@@ -91,6 +93,19 @@ test("answerSupportQuestion rejects provider refusals", async () => {
   await assert.rejects(answerSupportQuestion({ client, question: "Question", model: "test", timeoutMs: 1000 }), (error) => error.code === "provider_refusal");
 });
 
+test("answerSupportQuestion rejects explicit provider errors and normalizes absent usage", async () => {
+  const failed = { responses: { async create() { return { status: "completed", error: { code: "provider_error" }, output_text: "unsafe" }; } } };
+  await assert.rejects(
+    answerSupportQuestion({ client: failed, question: "Question", model: "test", timeoutMs: 1000 }),
+    (error) => error.code === "provider_response_error"
+  );
+
+  const completed = { responses: { async create() { return { status: "completed", output: [], output_text: "Answer" }; } } };
+  const result = await answerSupportQuestion({ client: completed, question: "Question", model: "test", timeoutMs: 1000 });
+  assert.equal(result.usage, null);
+  assert.equal(result.model, "test");
+});
+
 test("mapOpenAIError recognizes real OpenAI SDK error classes", () => {
   assert.equal(mapOpenAIError(new OpenAI.RateLimitError()).statusCode, 503);
   assert.equal(
@@ -99,4 +114,32 @@ test("mapOpenAIError recognizes real OpenAI SDK error classes", () => {
   );
   assert.equal(mapOpenAIError(new OpenAI.APIUserAbortError()).statusCode, 504);
   assert.equal(mapOpenAIError(new Error("Unexpected")).statusCode, 502);
+});
+
+test("preprocessQuestion redacts contact data and long account-like numbers", () => {
+  const result = preprocessQuestion("Email alex@example.com or call +1 (212) 555-0199. Reference 1234 5678 9012.");
+  assert.equal(result.ok, true);
+  assert.doesNotMatch(result.question, /alex@example\.com|555-0199|1234 5678 9012/);
+  assert.match(result.question, /\[redacted/);
+});
+
+test("preprocessQuestion blocks sensitive categories and supports explicit redaction opt-out", () => {
+  for (const question of ["My password is secret", "My credit card was charged", "Here is my medical diagnosis"]) {
+    assert.equal(preprocessQuestion(question).ok, false);
+  }
+  assert.deepEqual(preprocessQuestion("Email alex@example.com", { redactPii: false }), {
+    ok: true,
+    question: "Email alex@example.com",
+    redactions: []
+  });
+});
+
+test("auth failure tracker uses an isolated fixed window", () => {
+  let now = 1000;
+  const tracker = createAuthFailureTracker({ windowMs: 1000, limit: 1, now: () => now });
+  assert.equal(tracker.record("127.0.0.1").allowed, true);
+  assert.equal(tracker.record("127.0.0.1").allowed, false);
+  assert.equal(tracker.record("127.0.0.2").allowed, true);
+  now = 2000;
+  assert.equal(tracker.record("127.0.0.1").allowed, true);
 });

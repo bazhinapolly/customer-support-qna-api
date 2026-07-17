@@ -13,7 +13,8 @@ The repository focuses on the backend request-to-provider flow. A chat interface
 - Explicit `store: false` provider requests and completed-response enforcement
 - Maintainable business-policy context kept separate from request handling
 - Input validation and a 32 KB request-body limit
-- Per-process IP rate limiting for the paid endpoint
+- Best-effort contact-data redaction and sensitive-content rejection before provider calls
+- Separate per-process IP limits for failed authentication and authenticated paid requests
 - OpenAI timeout, retry, rate-limit, and provider-error handling
 - Stable JSON errors for malformed JSON, oversized bodies, unknown routes, and provider failures
 - Separate liveness and readiness endpoints
@@ -27,9 +28,10 @@ The repository focuses on the backend request-to-provider flow. A chat interface
 
 ```text
 HTTP request
-  -> rate limit
   -> bearer-token authentication
+  -> authenticated paid-request rate limit
   -> payload validation
+  -> sensitive-content policy + best-effort contact redaction
   -> fixed support instructions + customer question
   -> OpenAI Responses API (store: false)
   -> completed/refusal/incomplete validation
@@ -113,7 +115,7 @@ Successful response shape:
 ```json
 {
   "answer": "Same-day appointments are not guaranteed. Request a quote through the website form.",
-  "model": "gpt-4o-mini",
+  "model": "gpt-4o-mini-2024-07-18",
   "usage": {
     "input_tokens": 245,
     "output_tokens": 25,
@@ -130,12 +132,14 @@ The answer and token counts vary by provider response.
 | --- | --- | --- | --- |
 | `OPENAI_API_KEY` | yes | none | Server-side OpenAI credential |
 | `SUPPORT_API_KEY` | yes | none | Bearer token required by `POST /support/ask` |
-| `OPENAI_MODEL` | no | `gpt-4o-mini` | Configurable OpenAI model ID |
+| `OPENAI_MODEL` | no | `gpt-4o-mini-2024-07-18` | Pinned default model snapshot |
 | `HOST` | no | `127.0.0.1` | Listen address |
 | `PORT` | no | `3000` | Listen port |
 | `REQUEST_TIMEOUT_MS` | no | `12000` | Timeout for each OpenAI request attempt |
 | `RATE_LIMIT_WINDOW_MS` | no | `60000` | Rate-limit window in milliseconds |
 | `RATE_LIMIT_MAX` | no | `30` | Requests allowed per IP and window |
+| `AUTH_FAILURE_RATE_LIMIT_MAX` | no | `20` | Failed bearer attempts allowed per IP and window |
+| `REDACT_PII` | no | `1` | Best-effort email, phone, and long-number redaction before OpenAI |
 | `TRUST_PROXY_HOPS` | no | `0` | Number of trusted reverse proxies used to resolve client IPs |
 
 Set `TRUST_PROXY_HOPS` only when the deployment topology is known. An incorrect value can make IP-based rate limiting unreliable.
@@ -146,10 +150,12 @@ Set `TRUST_PROXY_HOPS` only when the deployment topology is known. An incorrect 
 | --- | --- | --- |
 | `400` | `invalid_request` | Missing, empty, non-string, or oversized question |
 | `400` | `invalid_json` | Malformed JSON request body |
+| `400` | `sensitive_content` | Medical, payment/account, or credential category detected |
 | `401` | `unauthorized` | Missing or invalid bearer token |
 | `404` | `not_found` | Unknown route |
 | `413` | `payload_too_large` | Request body exceeds 32 KB |
 | `429` | `rate_limited` | Inbound per-IP limit exceeded |
+| `429` | `auth_rate_limited` | Failed-authentication IP limit exceeded |
 | `502` | `provider_error` | Unexpected provider failure |
 | `503` | `service_not_ready` | Required server configuration is missing |
 | `503` | `provider_rate_limited` | OpenAI rate limit reached after retries |
@@ -159,7 +165,7 @@ Provider error details are logged server-side and are not returned to callers.
 
 ## Privacy and OpenAI data controls
 
-The service sends the complete normalized customer question and the maintained business-policy context to the configured OpenAI project. Do not submit unnecessary personal, payment, health, legal, credential, or other sensitive data. Add application-specific redaction before deployment when the intake channel can contain such information.
+By default, the service applies best-effort pattern-based redaction to email addresses, phone numbers, and long account-like numbers before sending the normalized question to OpenAI. It rejects messages that explicitly contain medical, payment/account, or credential categories without calling the provider. This preprocessing reduces exposure but is not an anonymization guarantee: patterns can miss unusual formats or inferable information, so real intake still requires an approved data policy and channel-specific review.
 
 Every Responses API request explicitly sets `store: false`, which disables Responses application-state storage for this request. This does not by itself remove separate abuse-monitoring logs. OpenAI documents that those logs may contain customer content and are retained for up to 30 days by default; eligible organizations can apply for Modified Abuse Monitoring or Zero Data Retention. Review the current [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data) and the selected project's settings before processing real customer data.
 
@@ -173,15 +179,15 @@ npm run check
 npm audit
 ```
 
-The test suite covers configuration and credential validation, prompts, request validation, the Responses API adapter, storage opt-out, incomplete results and refusals, real OpenAI SDK error classes, authentication, health endpoints, malformed JSON, request-size limits, rate limiting, stable provider errors, and 404 responses. Tests use an injected provider function and do not require API credentials.
+The test suite covers configuration and credential validation, prompts, request validation, preprocessing, provider-call prevention for sensitive content, the Responses API adapter, storage opt-out, incomplete results and refusals, real OpenAI SDK error classes, authentication, readiness/OpenAPI response contracts, malformed JSON, request-size limits, isolated auth and paid-request rate limits, stable provider errors, and 404 responses. Coverage thresholds are enforced locally and in CI. Tests use an injected provider function and do not require API credentials.
 
 The repository also validates the OpenAPI contract and a versioned quality-evaluation dataset. A paid model evaluation can be run without storing answers:
 
 ```bash
-OPENAI_API_KEY='your-key' OPENAI_MODEL='gpt-4o-mini' npm run eval:openai
+OPENAI_API_KEY='your-key' OPENAI_MODEL='gpt-4o-mini-2024-07-18' npm run eval:openai
 ```
 
-The evaluation set covers factual grounding, escalation, unsupported policies, and prompt-injection attempts. No live score is claimed in the repository until the command is run against the chosen model and reviewed for the target business context.
+The versioned 32-case evaluation set contains eight cases each for factual grounding, escalation, prompt injection, and unsupported boundaries. Its paid runner reports overall and per-category pass rates. No live score is claimed in the repository until the command is run against the pinned model and reviewed for the target business context.
 
 ## Production Rollout
 

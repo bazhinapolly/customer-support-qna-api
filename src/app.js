@@ -3,6 +3,8 @@ import { rateLimit } from "express-rate-limit";
 import helmet from "helmet";
 import { createApiKeyMiddleware } from "./auth.js";
 import { getMissingSecrets } from "./config.js";
+import { preprocessQuestion } from "./preprocess.js";
+import { createAuthFailureTracker } from "./rateLimiter.js";
 import { mapOpenAIError, validateQuestionPayload } from "./validation.js";
 
 export function createApp({ config, answerQuestion, logger = console }) {
@@ -41,11 +43,15 @@ export function createApp({ config, answerQuestion, logger = console }) {
       });
     }
   });
+  const authFailureTracker = createAuthFailureTracker({
+    windowMs: config.rateLimitWindowMs,
+    limit: config.authFailureRateLimitMax
+  });
 
   app.post(
     "/support/ask",
+    createApiKeyMiddleware(config.supportApiKey, authFailureTracker),
     supportLimiter,
-    createApiKeyMiddleware(config.supportApiKey),
     async (req, res) => {
       if (!config.openAIApiKey) {
         return res.status(503).json({
@@ -62,8 +68,18 @@ export function createApp({ config, answerQuestion, logger = console }) {
         });
       }
 
+      const preprocessed = preprocessQuestion(validation.question, {
+        redactPii: config.redactPii
+      });
+      if (!preprocessed.ok) {
+        return res.status(400).json({
+          error: "sensitive_content",
+          message: "Remove medical, payment-card, account, or credential data and try again."
+        });
+      }
+
       try {
-        const result = await answerQuestion(validation.question);
+        const result = await answerQuestion(preprocessed.question);
         return res.json(result);
       } catch (error) {
         logger.error("OpenAI request failed", {

@@ -4,17 +4,19 @@
   "servers": [{"url":"http://127.0.0.1:3000"}],
   "paths": {
     "/health/live": {"get":{"summary":"Process liveness","responses":{"200":{"description":"Process is running","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Health"}}}}}}},
-    "/health/ready": {"get":{"summary":"Configuration readiness","responses":{"200":{"description":"Required configuration is present"},"503":{"$ref":"#/components/responses/ServiceUnavailable"}}}},
+    "/health/ready": {"get":{"summary":"Configuration readiness","responses":{"200":{"description":"Required configuration is present","content":{"application/json":{"schema":{"$ref":"#/components/schemas/ReadinessReady"}}}},"503":{"description":"Required configuration is missing","content":{"application/json":{"schema":{"$ref":"#/components/schemas/ReadinessNotReady"}}}}}}},
     "/support/ask": {"post":{"summary":"Answer one customer-support question","security":[{"bearerAuth":[]}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/QuestionRequest"}}}},"responses":{"200":{"description":"Completed provider answer","content":{"application/json":{"schema":{"$ref":"#/components/schemas/AnswerResponse"}}}},"400":{"$ref":"#/components/responses/BadRequest"},"401":{"$ref":"#/components/responses/Unauthorized"},"413":{"$ref":"#/components/responses/PayloadTooLarge"},"429":{"$ref":"#/components/responses/RateLimited"},"502":{"$ref":"#/components/responses/ProviderError"},"503":{"$ref":"#/components/responses/ServiceUnavailable"},"504":{"$ref":"#/components/responses/ProviderTimeout"}}}}
   },
   "components": {
     "securitySchemes":{"bearerAuth":{"type":"http","scheme":"bearer"}},
     "schemas": {
-      "Health":{"type":"object","additionalProperties":false,"required":["status"],"properties":{"status":{"type":"string","enum":["ok","ready","not_ready"]}}},
+      "Health":{"type":"object","additionalProperties":false,"required":["status"],"properties":{"status":{"type":"string","enum":["ok"]}}},
+      "ReadinessReady":{"type":"object","additionalProperties":false,"required":["status"],"properties":{"status":{"type":"string","enum":["ready"]}}},
+      "ReadinessNotReady":{"type":"object","additionalProperties":false,"required":["status","missing"],"properties":{"status":{"type":"string","enum":["not_ready"]},"missing":{"type":"array","minItems":1,"items":{"type":"string","enum":["OPENAI_API_KEY","SUPPORT_API_KEY"]}}}},
       "QuestionRequest":{"type":"object","additionalProperties":true,"required":["question"],"properties":{"question":{"type":"string","minLength":1,"maxLength":2000}}},
       "Usage":{"type":["object","null"],"properties":{"input_tokens":{"type":["integer","null"],"minimum":0},"output_tokens":{"type":["integer","null"],"minimum":0},"total_tokens":{"type":["integer","null"],"minimum":0}}},
       "AnswerResponse":{"type":"object","additionalProperties":false,"required":["answer","model","usage"],"properties":{"answer":{"type":"string","minLength":1},"model":{"type":"string","minLength":1},"usage":{"$ref":"#/components/schemas/Usage"}}},
-      "Error":{"type":"object","required":["error","message"],"properties":{"error":{"type":"string"},"message":{"type":"string"}}}
+      "Error":{"type":"object","additionalProperties":false,"required":["error","message"],"properties":{"error":{"type":"string"},"message":{"type":"string"}}}
     },
     "responses": {
       "BadRequest":{"description":"Invalid request","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}},
