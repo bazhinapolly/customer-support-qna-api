@@ -20,6 +20,11 @@ export function createApiKeyMiddleware(expectedApiKey, authFailureTracker = null
       const failure = authFailureTracker?.record(req.ip || req.socket?.remoteAddress);
       if (failure && !failure.allowed) {
         res.set("Retry-After", String(failure.retryAfterSeconds));
+        res.set(
+          "RateLimit",
+          `limit=${failure.limit}, remaining=${failure.remaining}, reset=${failure.retryAfterSeconds}`
+        );
+        res.set("RateLimit-Policy", `${failure.limit};w=${failure.windowSeconds}`);
         return res.status(429).json({
           error: "auth_rate_limited",
           message: "Too many failed authentication attempts. Please try again later."

@@ -8,7 +8,7 @@ from pypdf import PdfReader
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = {
-    "Customer-Support-QA-API-Case-Study.pdf": (2, ("Customer Support Q&A API", "fictional", "paid model evaluation is pending", "27 unit", "Business value")),
+    "Customer-Support-QA-API-Case-Study.pdf": (2, ("Customer Support Q&A API", "fictional", "paid model evaluation is pending", "29 unit", "Business value")),
     "Customer-Support-QA-API-Technical-Summary.pdf": (1, ("Customer Support Q&A API", "Public error contract", "Evidence scope", "live quality evaluation pending")),
 }
 FORBIDDEN = (r"\bdemo\b", r"\beducational\b", r"\blearning project\b", r"reference app", r"reference implementation", r"not a live")

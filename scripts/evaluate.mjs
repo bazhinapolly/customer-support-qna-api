@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { answerSupportQuestion, createOpenAIClient } from "../src/openaiClient.js";
+import { meetsEvaluationGate } from "./evaluation-gate.mjs";
 
 const dataset = JSON.parse(await readFile(new URL("../evals/cases.json", import.meta.url), "utf8"));
 validateDataset(dataset);
@@ -33,6 +34,7 @@ const categories = Object.fromEntries(
   })
 );
 const passed = results.filter((item) => item.pass).length;
+const accepted = meetsEvaluationGate(categories);
 console.log(JSON.stringify({
   dataset_version: dataset.version,
   evaluated_at: new Date().toISOString(),
@@ -40,10 +42,11 @@ console.log(JSON.stringify({
   passed,
   total: results.length,
   pass_rate: passed / results.length,
+  accepted,
   categories,
   results
 }, null, 2));
-if (passed !== results.length) process.exitCode = 1;
+if (!accepted) process.exitCode = 1;
 
 function validateDataset(value) {
   assert.equal(typeof value?.version, "string", "dataset version is required");

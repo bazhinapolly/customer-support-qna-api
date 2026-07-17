@@ -137,8 +137,12 @@ test("preprocessQuestion blocks sensitive categories and supports explicit redac
 test("auth failure tracker uses an isolated fixed window", () => {
   let now = 1000;
   const tracker = createAuthFailureTracker({ windowMs: 1000, limit: 1, now: () => now });
-  assert.equal(tracker.record("127.0.0.1").allowed, true);
-  assert.equal(tracker.record("127.0.0.1").allowed, false);
+  assert.deepEqual(tracker.record("127.0.0.1"), {
+    allowed: true, limit: 1, remaining: 0, retryAfterSeconds: 1, windowSeconds: 1
+  });
+  assert.deepEqual(tracker.record("127.0.0.1"), {
+    allowed: false, limit: 1, remaining: 0, retryAfterSeconds: 1, windowSeconds: 1
+  });
   assert.equal(tracker.record("127.0.0.2").allowed, true);
   now = 2000;
   assert.equal(tracker.record("127.0.0.1").allowed, true);

@@ -104,6 +104,9 @@ test("failed authentication has its own limiter and missing configuration stays 
   assert.equal(first.status, 401);
   assert.equal(second.status, 429);
   assert.equal(second.body.error, "auth_rate_limited");
+  assert.equal(second.headers.get("retry-after"), "60");
+  assert.equal(second.headers.get("ratelimit"), "limit=1, remaining=0, reset=60");
+  assert.equal(second.headers.get("ratelimit-policy"), "1;w=60");
 
   const missingBoth = await requestApp(
     buildApp({ env: { OPENAI_API_KEY: "", SUPPORT_API_KEY: "" } }),

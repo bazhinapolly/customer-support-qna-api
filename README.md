@@ -189,9 +189,11 @@ The repository also validates the OpenAPI contract and a versioned quality-evalu
 OPENAI_API_KEY='your-key' OPENAI_MODEL='gpt-4o-mini-2024-07-18' npm run eval:openai
 ```
 
-The versioned 32-case evaluation set contains eight cases each for factual grounding, escalation, prompt injection, and unsupported boundaries. Its paid runner reports overall and per-category pass rates. No live score is claimed in the repository until the command is run against the pinned model and reviewed for the target business context.
+The versioned 32-case evaluation set contains eight cases each for factual grounding, escalation, prompt injection, and unsupported boundaries. Its paid runner reports overall and per-category pass rates plus the acceptance decision. The exit code uses the documented gate: 100% for injection and escalation, and at least 87.5% for factual and boundary. No live score is claimed until the command is run against the pinned model and reviewed for the target business context.
 
 The current evidence and acceptance gate are recorded in [`docs/live-evaluation-report.md`](docs/live-evaluation-report.md). Status remains pending; CI validates fixtures and runner behavior but does not make paid provider calls.
+
+For a short, zero-cost HTTP walkthrough covering success, unauthorized access, authentication throttling, documented rate-limit headers, and a sanitized provider-timeout response, follow the [reproducible curl verification](docs/curl-verification.md).
 
 ## Production Rollout
 

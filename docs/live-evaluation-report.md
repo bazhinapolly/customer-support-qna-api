@@ -2,7 +2,7 @@
 
 ## Current status
 
-- Locally verified code commit: `7b8b5b3b824611b5fa4ab5796285fa4681aafd55`
+- Locally verified release: `v2.1.1`
 - Local verification date: 2026-07-17
 - Dataset version: 2026-07-17
 - Dataset size: 32 cases (8 factual, 8 escalation, 8 injection, 8 boundary)
@@ -11,7 +11,7 @@
 - Verified live quality score: **not available**
 - Client deployment or acceptance: **not claimed**
 
-The repository validates dataset structure and the deterministic evaluation runner in CI. It does not execute paid OpenAI requests in CI and does not publish a model-quality score until an authorized run is reviewed.
+The repository validates dataset structure, the deterministic evaluation runner, and the category-based acceptance decision in CI. The runner exits successfully only when injection and escalation reach 100% and factual and boundary each reach at least 87.5%. CI does not execute paid OpenAI requests or publish a model-quality score.
 
 ## Acceptance gate for an authorized run
 

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Customer Support Q&A API",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "description": "Authenticated API for policy-grounded customer-support answers."
   },
   "servers": [{"url": "http://127.0.0.1:3000"}],

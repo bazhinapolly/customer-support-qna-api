@@ -71,7 +71,7 @@ def invariant_canvas(*args, **kwargs):
 def strip():
     data = [
         [p("DELIVERY", "small"), p("PROVIDER", "small"), p("SECURITY", "small"), p("QUALITY", "small")],
-        [p("Authenticated REST API", "h3"), p("OpenAI Responses API", "h3"), p("Strong bearer auth + limits", "h3"), p("27 tests + 89% branches", "h3")],
+        [p("Authenticated REST API", "h3"), p("OpenAI Responses API", "h3"), p("Strong bearer auth + limits", "h3"), p("29 tests + 89% branches", "h3")],
     ]
     return Table(data, colWidths=[1.675 * inch] * 4, style=TableStyle([("BACKGROUND", (0, 0), (-1, -1), PALE), ("BOX", (0, 0), (-1, -1), 0.7, LINE), ("INNERGRID", (0, 0), (-1, -1), 0.5, LINE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("PADDING", (0, 0), (-1, -1), 7)]))
 
@@ -111,14 +111,14 @@ def build_case_study():
         bullet("POST /support/ask is the authenticated, rate-limited paid endpoint."),
         bullet("SIGINT and SIGTERM trigger graceful server shutdown."),
         p("Verification evidence", "h2"),
-        p("27 unit and HTTP integration tests cover credentials, bounded auth tracking, authentication-before-parsing, validation, prompt boundaries, best-effort redaction, sensitive-content rejection, completed-response handling, readiness contracts, isolated rate limits, and stable errors. CI enforces 89.26% branch coverage and validates the complete OpenAPI contract plus the versioned 32-case dataset."),
+        p("29 unit and HTTP integration tests cover credentials, bounded auth tracking, authentication-before-parsing, validation, prompt boundaries, best-effort redaction, sensitive-content rejection, completed-response handling, readiness contracts, isolated rate limits, stable errors, and the category-based evaluation gate. CI enforces at least 85% branch coverage and validates the complete OpenAPI contract plus the versioned 32-case dataset."),
         p("Data boundary", "h2"),
         p("Best-effort patterns redact detected email, phone, and long account-like numbers; explicit medical, payment/account, and credential categories are rejected before the provider call. This is not an anonymization guarantee. Responses application-state storage is disabled with store: false; separate provider abuse-monitoring retention remains subject to project data controls."),
         p("Production rollout", "h2"),
         p("Replace the bundled policy context with approved business content, move secrets to a managed store, configure TLS and proxy trust, add centralized logs and cost monitoring, choose a distributed rate-limit store for multiple instances, and run representative answer-quality and prompt-injection evaluations."),
         p("Business value", "h2"),
         p("The service provides a security-controlled API foundation between customer-facing channels and OpenAI, keeping authentication, validation, cost controls, provider behavior, and public errors consistent across future web, helpdesk, or CRM clients."),
-        p("Verified locally 2026-07-17 | code commit 7b8b5b3b824611b5fa4ab5796285fa4681aafd55 | github.com/bazhinapolly/customer-support-qna-api", "small"),
+        p("Verified locally 2026-07-17 | release v2.1.1 | 29 tests | github.com/bazhinapolly/customer-support-qna-api", "small"),
     ]
     document(OUT / "Customer-Support-QA-API-Case-Study.pdf", "Customer Support Q&A API - Case Study").build(story, onFirstPage=frame, onLaterPages=frame, canvasmaker=invariant_canvas)
 
@@ -151,13 +151,13 @@ def build_technical():
         p("Security and resilience", "h2"),
         Table([[[bullet("Validated independent inbound secret"), bullet("Timing-safe authentication"), bullet("Bounded request size and question length"), bullet("Configurable proxy trust")], [bullet("store: false provider requests"), bullet("Completed output required"), bullet("Redacted public errors"), bullet("Per-process rate limiting")]]], colWidths=[3.35 * inch] * 2, style=TableStyle([("BACKGROUND", (0, 0), (-1, -1), PALE), ("BOX", (0, 0), (-1, -1), 0.7, LINE), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("PADDING", (0, 0), (-1, -1), 8)])),
         p("Verification", "h2"),
-        p("27 tests exercise application logic and the local HTTP surface without paid provider calls. CI enforces 89.26% branch coverage and validates the complete OpenAPI contract plus 32 versioned evaluation cases on Node.js 20, 22, and 24."),
+        p("29 tests exercise application logic, the local HTTP surface, and the acceptance gate without paid provider calls. CI enforces at least 85% branch coverage and validates the complete OpenAPI contract plus 32 versioned evaluation cases on Node.js 20, 22, and 24."),
         p("Evidence scope", "h2"),
         p("Fictional context; prompt-only grounding; no retrieval or citations; paid live quality evaluation pending; no client deployment or measured business outcome claimed.", "small"),
         p("Run locally", "h2"),
         Table([[p("npm ci", "code"), p("npm run check", "code"), p("npm start", "code")]], colWidths=[2.1 * inch, 2.3 * inch, 2.3 * inch], style=TableStyle([("BACKGROUND", (0, 0), (-1, -1), NAVY), ("BOX", (0, 0), (-1, -1), 0.7, NAVY), ("PADDING", (0, 0), (-1, -1), 8)])),
         Spacer(1, 0.05 * inch),
-        p("Verified locally 2026-07-17 | code commit 7b8b5b3b824611b5fa4ab5796285fa4681aafd55 | github.com/bazhinapolly/customer-support-qna-api<br/>Production rollout adds managed secrets, TLS, centralized observability, distributed rate limiting, approved policy content, and representative quality evaluations.", "small"),
+        p("Verified locally 2026-07-17 | release v2.1.1 | 29 tests | github.com/bazhinapolly/customer-support-qna-api<br/>Production rollout requires managed secrets, TLS, observability, distributed limits, approved content, and quality evaluation.", "small"),
     ]
     document(OUT / "Customer-Support-QA-API-Technical-Summary.pdf", "Customer Support Q&A API - Technical Summary").build(story, onFirstPage=frame, onLaterPages=frame, canvasmaker=invariant_canvas)
 

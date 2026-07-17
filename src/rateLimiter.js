@@ -39,7 +39,10 @@ export function createAuthFailureTracker({ windowMs, limit, maxBuckets = 10000, 
       buckets.set(safeKey, bucket);
       return {
         allowed: bucket.count <= limit,
-        retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - currentTime) / 1000))
+        limit,
+        remaining: Math.max(0, limit - bucket.count),
+        retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - currentTime) / 1000)),
+        windowSeconds: Math.max(1, Math.ceil(windowMs / 1000))
       };
     },
     size() {
