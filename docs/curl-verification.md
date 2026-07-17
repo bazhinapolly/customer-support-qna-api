@@ -11,7 +11,8 @@ node scripts/local-http-verification.mjs
 In another terminal, define the printed fixture token:
 
 ```bash
-export SUPPORT_API_KEY='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+export SUPPORT_API_KEY='<paste-the-fixture-token-printed-above>'
+export INVALID_SUPPORT_API_KEY='invalid-local-token'
 ```
 
 ## Successful request
@@ -33,7 +34,7 @@ Run the following command twice:
 ```bash
 curl -i http://127.0.0.1:3100/support/ask \
   -X POST \
-  -H 'Authorization: Bearer wrong-token' \
+  -H "Authorization: Bearer $INVALID_SUPPORT_API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"question":"What are your hours?"}'
 ```

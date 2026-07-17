@@ -1,0 +1,2 @@
+# False positive: literal invalid bearer value in the deterministic curl verification guide.
+a46f3cfad9257e93c49d76dee4b5389318ca9779:docs/curl-verification.md:curl-auth-header:34

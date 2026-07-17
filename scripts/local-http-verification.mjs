@@ -1,7 +1,8 @@
+import { randomBytes } from "node:crypto";
 import { createApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
 
-const SUPPORT_API_KEY = "a".repeat(64);
+const SUPPORT_API_KEY = randomBytes(32).toString("hex");
 class APIConnectionTimeoutError extends Error {}
 const config = loadConfig({
   HOST: "127.0.0.1",
