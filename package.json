@@ -1,6 +1,6 @@
 {
   "name": "customer-support-qna-api",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Authenticated OpenAI-backed customer support Q&A REST API.",
   "type": "module",

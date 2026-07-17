@@ -14,7 +14,7 @@ export function createApp({ config, answerQuestion, logger = console }) {
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxyHops);
   app.use(helmet());
-  app.use(express.json({ limit: "32kb", strict: true }));
+  const jsonParser = express.json({ limit: "32kb", strict: true });
 
   app.get("/health/live", (req, res) => {
     res.json({ status: "ok" });
@@ -45,13 +45,15 @@ export function createApp({ config, answerQuestion, logger = console }) {
   });
   const authFailureTracker = createAuthFailureTracker({
     windowMs: config.rateLimitWindowMs,
-    limit: config.authFailureRateLimitMax
+    limit: config.authFailureRateLimitMax,
+    maxBuckets: config.authFailureMaxBuckets
   });
 
   app.post(
     "/support/ask",
     createApiKeyMiddleware(config.supportApiKey, authFailureTracker),
     supportLimiter,
+    jsonParser,
     async (req, res) => {
       if (!config.openAIApiKey) {
         return res.status(503).json({

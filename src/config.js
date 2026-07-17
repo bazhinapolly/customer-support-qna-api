@@ -6,6 +6,7 @@ const DEFAULTS = Object.freeze({
   rateLimitWindowMs: 60000,
   rateLimitMax: 30,
   authFailureRateLimitMax: 20,
+  authFailureMaxBuckets: 10000,
   redactPii: true,
   trustProxyHops: 0
 });
@@ -42,6 +43,13 @@ export function loadConfig(env = process.env) {
       DEFAULTS.authFailureRateLimitMax,
       1,
       10000
+    ),
+    authFailureMaxBuckets: parseInteger(
+      env.AUTH_FAILURE_MAX_BUCKETS,
+      "AUTH_FAILURE_MAX_BUCKETS",
+      DEFAULTS.authFailureMaxBuckets,
+      100,
+      1000000
     ),
     trustProxyHops: parseInteger(
       env.TRUST_PROXY_HOPS,

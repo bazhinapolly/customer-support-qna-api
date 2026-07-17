@@ -15,6 +15,7 @@ test("loadConfig applies documented defaults", () => {
   assert.equal(config.timeoutMs, 12000);
   assert.equal(config.model, "gpt-4o-mini-2024-07-18");
   assert.equal(config.redactPii, true);
+  assert.equal(config.authFailureMaxBuckets, 10000);
   assert.equal(config.trustProxyHops, 0);
   assert.deepEqual(getMissingSecrets(config), []);
 });
@@ -35,6 +36,7 @@ test("loadConfig rejects invalid numeric configuration", () => {
     /REQUEST_TIMEOUT_MS must be an integer/
   );
   assert.throws(() => loadConfig({ REDACT_PII: "maybe" }), /REDACT_PII/);
+  assert.throws(() => loadConfig({ AUTH_FAILURE_MAX_BUCKETS: "10" }), /AUTH_FAILURE_MAX_BUCKETS/);
 });
 
 test("getMissingSecrets reports readiness requirements", () => {

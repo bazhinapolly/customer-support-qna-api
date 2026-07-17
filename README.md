@@ -98,7 +98,7 @@ GET /health/ready
 
 Returns `200` when both required secrets are present. Provider reachability is monitored independently through deployment observability.
 
-The complete machine-readable contract is available in [`openapi.yaml`](openapi.yaml) and is validated by `npm run check`.
+The machine-readable HTTP contract is available in [`openapi.yaml`](openapi.yaml) and is validated against the package version, runtime error identifiers, response statuses, and authentication/rate-limit headers by `npm run check`.
 
 ### Ask a support question
 
@@ -139,6 +139,7 @@ The answer and token counts vary by provider response.
 | `RATE_LIMIT_WINDOW_MS` | no | `60000` | Rate-limit window in milliseconds |
 | `RATE_LIMIT_MAX` | no | `30` | Requests allowed per IP and window |
 | `AUTH_FAILURE_RATE_LIMIT_MAX` | no | `20` | Failed bearer attempts allowed per IP and window |
+| `AUTH_FAILURE_MAX_BUCKETS` | no | `10000` | Maximum in-memory IP buckets before expired/oldest eviction |
 | `REDACT_PII` | no | `1` | Best-effort email, phone, and long-number redaction before OpenAI |
 | `TRUST_PROXY_HOPS` | no | `0` | Number of trusted reverse proxies used to resolve client IPs |
 
@@ -156,6 +157,7 @@ Set `TRUST_PROXY_HOPS` only when the deployment topology is known. An incorrect 
 | `413` | `payload_too_large` | Request body exceeds 32 KB |
 | `429` | `rate_limited` | Inbound per-IP limit exceeded |
 | `429` | `auth_rate_limited` | Failed-authentication IP limit exceeded |
+| `500` | `internal_error` | Unexpected server failure with no internal details returned |
 | `502` | `provider_error` | Unexpected provider failure |
 | `503` | `service_not_ready` | Required server configuration is missing |
 | `503` | `provider_rate_limited` | OpenAI rate limit reached after retries |

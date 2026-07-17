@@ -169,6 +169,24 @@ test("malformed JSON and oversized bodies produce JSON errors", async () => {
   });
 });
 
+test("authentication runs before JSON parsing", async () => {
+  const app = buildApp();
+  const malformed = await requestApp(app, "/support/ask", {
+    method: "POST",
+    headers: { authorization: "Bearer wrong", "content-type": "application/json" },
+    body: '{"question":'
+  });
+  assert.equal(malformed.status, 401);
+  assert.equal(malformed.body.error, "unauthorized");
+
+  const oversized = await requestApp(app, "/support/ask", {
+    method: "POST",
+    headers: { authorization: "Bearer wrong", "content-type": "application/json" },
+    body: JSON.stringify({ question: "x".repeat(33 * 1024) })
+  });
+  assert.equal(oversized.status, 401);
+});
+
 test("provider failures use stable public error responses", async () => {
   const TimeoutError = class APIConnectionTimeoutError extends Error {};
   const app = buildApp({

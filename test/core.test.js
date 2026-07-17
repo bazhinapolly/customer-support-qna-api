@@ -143,3 +143,16 @@ test("auth failure tracker uses an isolated fixed window", () => {
   now = 2000;
   assert.equal(tracker.record("127.0.0.1").allowed, true);
 });
+
+test("auth failure tracker prunes expired buckets and stays memory bounded", () => {
+  let now = 1000;
+  const tracker = createAuthFailureTracker({ windowMs: 1000, limit: 2, maxBuckets: 2, now: () => now });
+  tracker.record("one");
+  tracker.record("two");
+  assert.equal(tracker.size(), 2);
+  tracker.record("three");
+  assert.equal(tracker.size(), 2);
+  now = 2500;
+  tracker.record("four");
+  assert.equal(tracker.size(), 1);
+});
